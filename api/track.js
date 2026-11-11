@@ -4,12 +4,22 @@
 
 import { getProvider } from '../lib/providers/index.js';
 import { estimate } from '../lib/eta.js';
+import { rateLimit } from '../lib/rate-limit.js';
 
 const MAX = 20;
 const DAY = 86400000;
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'method_not_allowed' });
+  const quota = rateLimit(req, 'track', 30, 60_000);
+  if (typeof res.setHeader === 'function') {
+    res.setHeader('X-RateLimit-Limit', String(quota.limit));
+    res.setHeader('X-RateLimit-Remaining', String(quota.remaining));
+  }
+  if (!quota.allowed) {
+    if (typeof res.setHeader === 'function') res.setHeader('Retry-After', String(quota.retryAfter));
+    return res.status(429).json({ error: 'rate_limited', message: 'Has hecho demasiadas consultas. Espera un minuto e inténtalo de nuevo.', retryAfter: quota.retryAfter });
+  }
 
   const body = req.body && typeof req.body === 'object' ? req.body : {};
   const list = Array.isArray(body.shipments) ? body.shipments : [];

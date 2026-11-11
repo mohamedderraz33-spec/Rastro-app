@@ -4,8 +4,10 @@ import { estimate, campaign } from '../lib/eta.js';
 import { analyzeSms } from '../lib/sms.js';
 import { track } from '../lib/providers/mock.js';
 import { detectCarrier } from '../lib/carriers.js';
+import { createRateLimiter } from '../lib/rate-limit.js';
 import trackHandler from '../api/track.js';
 import smsHandler from '../api/sms.js';
+import statsHandler from '../api/stats.js';
 
 const DAY = 86400000;
 const NOW = Date.UTC(2026, 10, 2, 12, 0, 0); // 2 nov 2026, en campaña 11.11
@@ -70,6 +72,23 @@ test('detección de transportista', () => {
   assert.equal(detectCarrier('RR123456789ES').route, 'domestic');
   assert.equal(detectCarrier('1Z999AA10123456784').name, 'UPS');
   assert.equal(detectCarrier('xyz').name, 'Transportista por confirmar');
+});
+
+test('el límite por IP se restablece al acabar la ventana', () => {
+  const limit = createRateLimiter();
+  const req = { socket: { remoteAddress: '127.0.0.10' } };
+  assert.equal(limit(req, 'track', 2, 10000, 1000).allowed, true);
+  assert.equal(limit(req, 'track', 2, 10000, 1001).remaining, 0);
+  assert.equal(limit(req, 'track', 2, 10000, 1002).allowed, false);
+  assert.equal(limit(req, 'track', 2, 10000, 11000).allowed, true);
+});
+
+test('estadísticas no publica porcentajes inventados', async () => {
+  const res = fakeRes();
+  await statsHandler({ method: 'GET' }, res);
+  assert.equal(res.body.available, false);
+  assert.deepEqual(res.body.carriers, []);
+  assert.deepEqual(res.body.stores, []);
 });
 
 test('SMS de estafa típica: muy sospechoso', () => {

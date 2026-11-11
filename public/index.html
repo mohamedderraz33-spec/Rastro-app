@@ -71,6 +71,7 @@
     <li><a class="mi" href="#avisos" data-close><span>Avisos y notificaciones</span></a></li>
     <li><a class="mi" href="#sms" data-close><span>¿Es real este SMS?</span></a></li>
     <li><a class="mi" href="#ranking" data-close><span>Fiabilidad de transportistas y tiendas</span></a></li>
+    <li><button class="mi" type="button" id="themeBtn"><span id="themeLabel">Cambiar a modo claro</span></button></li>
     <li><button class="mi" type="button" id="refreshBtn"><span>Actualizar ahora</span></button></li>
     <li id="demoRow" hidden><button class="mi" type="button" id="demoBtn"><span>Quitar los envíos de ejemplo</span></button></li>
     <li><div class="mi"><span>Importar pedidos del email</span><small>Más adelante</small></div></li>
@@ -90,10 +91,10 @@
 
 <section class="sheet" id="shareSheet" role="dialog" aria-label="Compartir envío" hidden>
   <h3>Compartir este envío</h3>
-  <p class="note">Con el enlace se verá dónde va el paquete y cuándo llega, sin instalar nada. No se muestra tu dirección.</p>
+  <p class="note">El enlace incluye el número de seguimiento y una copia del estado y la fecha estimada actuales. No contiene tu dirección. Cualquiera que tenga el enlace podrá ver esos datos.</p>
   <div class="sharelink" id="shareLink"></div>
   <button class="btn" type="button" id="shareCopy">Copiar enlace</button>
-  <p class="note">Todavía no funciona: hace falta tener cuentas de usuario y una base de datos.</p>
+  <p class="note" id="shareNote"></p>
   <button class="btn ghost" type="button" data-close>Cerrar</button>
 </section>
 

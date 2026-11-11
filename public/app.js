@@ -3,6 +3,7 @@ import { CATS, riskLevel, claimText } from './js/content.js';
 /* ---------- utilidades ---------- */
 const DAY = 86400000;
 const KEY = 'rastro.v1';
+const THEME_KEY = 'rastro.theme.v1';
 const MAX_ITEMS = 20;
 
 const f = {
@@ -21,8 +22,39 @@ function whenLabel(ts) {
   if (sameDay(ts, now - DAY)) return 'Ayer';
   return cap(f.short.format(ts));
 }
-function hash(s) { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return h; }
 const $ = (id) => document.getElementById(id);
+
+/* ---------- tema claro/oscuro ---------- */
+const themeMedia = window.matchMedia ? window.matchMedia('(prefers-color-scheme: light)') : null;
+let themePreference = null;
+try {
+  const storedTheme = localStorage.getItem(THEME_KEY);
+  if (storedTheme === 'light' || storedTheme === 'dark') themePreference = storedTheme;
+} catch (e) { /* el tema del sistema sigue disponible sin almacenamiento */ }
+
+function activeTheme() {
+  return themePreference || (themeMedia && themeMedia.matches ? 'light' : 'dark');
+}
+
+function updateThemeButton() {
+  const label = $('themeLabel');
+  if (!label) return;
+  const next = activeTheme() === 'dark' ? 'claro' : 'oscuro';
+  label.textContent = `Cambiar a modo ${next}`;
+}
+
+function applyTheme() {
+  if (themePreference) document.documentElement.dataset.theme = themePreference;
+  else delete document.documentElement.dataset.theme;
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.content = activeTheme() === 'dark' ? '#0E1512' : '#F2F4F0';
+  updateThemeButton();
+}
+
+applyTheme();
+if (themeMedia && themeMedia.addEventListener) themeMedia.addEventListener('change', () => {
+  if (!themePreference) applyTheme();
+});
 
 /* ---------- estado (se guarda en el navegador) ---------- */
 function seed() {
@@ -81,6 +113,40 @@ function orderTsOf(item, s) {
 }
 function pickupLeft(s) { return Math.max(0, Math.ceil((s.pickup.deadlineTs - Date.now()) / DAY)); }
 
+function decodeSharedSnapshot(hashValue) {
+  const prefix = '#compartir=';
+  if (!hashValue.startsWith(prefix)) return undefined;
+  try {
+    const value = JSON.parse(decodeURIComponent(hashValue.slice(prefix.length)));
+    if (!value || value.v !== 1 || typeof value.code !== 'string' || value.code.length > 100) return null;
+    return value;
+  } catch (e) { return null; }
+}
+
+function sharedSnapshot(item, shipment) {
+  return {
+    v: 1,
+    code: String(item.code || '').slice(0, 100),
+    name: String(item.name || '').slice(0, 60),
+    store: String(item.store || '').slice(0, 60),
+    carrier: String(shipment && shipment.carrier || 'Pendiente').slice(0, 80),
+    status: String(shipment && shipment.status || 'unknown').slice(0, 30),
+    eta: shipment && shipment.eta ? {
+      kind: shipment.eta.kind,
+      mainTs: shipment.eta.mainTs,
+      fromTs: shipment.eta.fromTs,
+      toTs: shipment.eta.toTs,
+      delayDays: shipment.eta.delayDays,
+      reason: String(shipment.eta.reason || '').slice(0, 240),
+    } : null,
+    events: (shipment && shipment.events || []).slice(0, 8).map((ev) => ({
+      ts: Number(ev.ts) || 0,
+      title: String(ev.title || '').slice(0, 120),
+      place: String(ev.place || '').slice(0, 120),
+    })),
+  };
+}
+
 /* ---------- navegación ---------- */
 const view = $('view');
 const fabwrap = $('fabwrap');
@@ -92,12 +158,15 @@ let query = '';
 let rtab = 'transportistas';
 let smsText = '';
 let statsCache = null;
+let serviceWorkerRegistrationPromise = Promise.resolve(null);
 
 function route(scrollTop = true) {
   const hsh = location.hash;
+  const shared = decodeSharedSnapshot(hsh);
   const m = hsh.match(/^#envio-(.+)$/);
   const item = m && itemById(m[1]);
-  if (item) { current = 'detail'; renderDetail(item); }
+  if (shared !== undefined) { current = 'shared'; renderShared(shared); }
+  else if (item) { current = 'detail'; renderDetail(item); }
   else if (hsh === '#sms') { current = 'sms'; renderSms(); }
   else if (hsh === '#ranking') { current = 'ranking'; renderRanking(); }
   else if (hsh === '#avisos') { current = 'avisos'; renderAvisos(); }
@@ -106,6 +175,31 @@ function route(scrollTop = true) {
   if (scrollTop) window.scrollTo(0, 0);
 }
 window.addEventListener('hashchange', () => route(true));
+
+function renderShared(snapshot) {
+  let h = BACK + '<div class="panel"><div class="head"><span class="label">Enlace compartido</span>';
+  if (!snapshot) {
+    h += '<h2>El enlace no es válido</h2></div><div class="empty"><b>No se pudo leer el envío</b>Pide a quien te lo compartió que genere un enlace nuevo.</div></div>';
+    view.innerHTML = h;
+    return;
+  }
+  const st = STATUS[snapshot.status] || STATUS.unknown;
+  const eta = snapshot.eta;
+  let dateText = 'Aún no hay fecha estimada disponible.';
+  if (eta && eta.kind === 'today') dateText = 'Llega hoy';
+  else if (eta && eta.kind === 'delivered') dateText = `Entregado el ${f.long.format(eta.mainTs)}`;
+  else if (eta && eta.mainTs) dateText = `Fecha estimada: ${f.long.format(eta.mainTs)}`;
+  h += `<h2>${esc(snapshot.name || 'Envío')}</h2><div class="meta"><span>${esc(snapshot.store || 'Sin tienda')}</span><span class="mono">${esc(snapshot.code)}</span><span>${esc(snapshot.carrier || 'Transportista pendiente')}</span><span class="pill ${st.c}">${st.t}</span></div></div>`;
+  h += `<div class="card eta"><span class="label">Llegada</span><div class="big">${esc(dateText)}</div>`;
+  if (eta && eta.delayDays) h += `<div class="alert"><strong>Retraso estimado: ${Number(eta.delayDays)} días</strong><p>${esc(eta.reason || '')}</p></div>`;
+  h += '<p class="note">Estimación orientativa. Este enlace muestra una copia del estado en el momento en que se creó.</p></div>';
+  if (snapshot.events && snapshot.events.length) {
+    h += '<div><h3 style="font-size:1.05rem; margin-bottom:14px">Historial compartido</h3><ul class="tl">' + snapshot.events.map((ev) =>
+      `<li><div class="when">${ev.ts ? whenLabel(ev.ts) + '<br>' + f.time.format(ev.ts) : ''}</div><div class="dot"></div><div class="tx"><b>${esc(ev.title)}</b><span>${esc(ev.place)}</span></div></li>`).join('') + '</ul></div>';
+  }
+  h += '</div>';
+  view.innerHTML = h;
+}
 
 function rerender() {
   if (!['list', 'detail', 'avisos'].includes(current)) return;
@@ -370,7 +464,11 @@ async function renderRanking() {
   }
   const d = statsCache;
   let h = BACK + '<div class="panel"><div class="head"><span class="label">Comparativa</span><h2>Fiabilidad</h2></div>';
-  if (d.sample) h += '<div class="demo">Cifras de ejemplo inventadas para enseñar el diseño. En la versión real se calcularán con los envíos de los usuarios.</div>';
+  if (!d.available || d.sample || !d.carriers.length || !d.stores.length) {
+    h += '<div class="empty"><b>Aún no hay datos reales</b>Rastro no muestra porcentajes inventados. La comparativa estará disponible cuando se recopilen suficientes entregas verificadas.</div></div>';
+    view.innerHTML = h;
+    return;
+  }
   h += '<div class="tabs two" role="tablist">' +
     `<button class="tab" role="tab" type="button" data-rtab="transportistas" aria-selected="${rtab === 'transportistas'}">Transportistas</button>` +
     `<button class="tab" role="tab" type="button" data-rtab="tiendas" aria-selected="${rtab === 'tiendas'}">Tiendas</button></div><div>`;
@@ -402,10 +500,19 @@ function renderAvisos() {
     if (s.status === 'out' && state.prefs.out) feed.push({ i, ts: last, t: 'Sale hoy a reparto', x: `${i.name} ya está con el repartidor de ${s.carrier}.` });
   });
   feed.sort((a, b) => b.ts - a.ts);
+  const notificationSupported = 'Notification' in window && 'serviceWorker' in navigator;
+  const permission = notificationSupported ? Notification.permission : 'unsupported';
+  const notificationControl = permission === 'granted'
+    ? '<div class="hint">Avisos del navegador activados en este dispositivo.</div>'
+    : permission === 'denied'
+      ? '<div class="hint">El navegador bloqueó los avisos. Puedes activarlos desde los ajustes del sitio.</div>'
+      : notificationSupported
+        ? '<button class="btn line" type="button" data-notifications>Activar avisos en este navegador</button>'
+        : '<div class="hint">Este navegador no admite avisos locales.</div>';
   let h = BACK + '<div class="panel"><div class="head"><span class="label">Notificaciones</span><h2>Avisos</h2></div>' +
     '<div class="card"><h3>Quiero que me avise</h3><div>' + TOGGLES.map((t) =>
       `<div class="trow"><span>${t[1]}</span><button class="sw" type="button" role="switch" data-pref="${t[0]}" aria-checked="${state.prefs[t[0]]}" aria-label="${t[1]}"></button></div>`).join('') +
-    '</div><p class="note">Los avisos al móvil llegarán con la app. Ahora se ven aquí.</p></div>' +
+    `</div><p class="note">Los avisos locales funcionan mientras este navegador pueda actualizar los envíos. No son notificaciones push cuando la app está cerrada.</p>${notificationControl}</div>` +
     '<div><h3 style="font-size:1.05rem; margin-bottom:6px">Últimos avisos</h3>';
   if (feed.length) {
     h += '<div class="feed">' + feed.map((x) =>
@@ -416,6 +523,41 @@ function renderAvisos() {
   h += '</div></div>';
   view.innerHTML = h;
   fabwrap.hidden = true;
+}
+
+async function enableNotifications() {
+  if (!('Notification' in window) || !('serviceWorker' in navigator)) return;
+  try {
+    const permission = await Notification.requestPermission();
+    if (permission === 'granted') await serviceWorkerRegistrationPromise;
+  } catch (e) { /* el navegador puede no permitir la solicitud */ }
+  renderAvisos();
+}
+
+async function notifyStatusChange(item, previous, next) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  let title = '';
+  let body = '';
+  if (state.prefs.delay && next.eta && next.eta.delayDays > 0 && (!previous || !previous.eta || previous.eta.delayDays !== next.eta.delayDays)) {
+    title = `Retraso de ${next.eta.delayDays} días`;
+    body = `${item.name}: ${next.eta.reason || 'Ha cambiado la fecha estimada.'}`;
+  } else if (state.prefs.out && next.status === 'out' && (!previous || previous.status !== 'out')) {
+    title = 'Sale hoy a reparto';
+    body = `${item.name} ya está con ${next.carrier}.`;
+  } else if (state.prefs.pickup && next.status === 'pickup' && (!previous || previous.status !== 'pickup')) {
+    title = 'Listo para recoger';
+    body = `${item.name} está en ${next.pickup && next.pickup.place || next.carrier}.`;
+  }
+  if (!title) return;
+  try {
+    const registration = await serviceWorkerRegistrationPromise;
+    if (!registration) return;
+    await registration.showNotification(title, {
+      body,
+      tag: `rastro-${item.id}-${next.status}-${next.eta && next.eta.delayDays || 0}`,
+      data: { url: `${location.origin}/#envio-${encodeURIComponent(item.id)}` },
+    });
+  } catch (e) { /* avisos no disponibles: la actualización sigue funcionando */ }
 }
 
 /* ---------- clics dentro de las vistas ---------- */
@@ -431,6 +573,8 @@ view.addEventListener('click', (ev) => {
   if (t && t.hasAttribute('data-rtab')) { rtab = t.getAttribute('data-rtab'); renderRanking(); return; }
   const pf = ev.target.closest('[data-pref]');
   if (pf) { const k = pf.getAttribute('data-pref'); state.prefs[k] = !state.prefs[k]; save(); renderAvisos(); return; }
+  if (ev.target.closest('[data-notifications]')) { enableNotifications(); return; }
+  if (current === 'shared') return;
   const m = location.hash.match(/^#envio-(.+)$/);
   const item = m && itemById(m[1]);
   if (!item) return;
@@ -457,7 +601,16 @@ view.addEventListener('click', (ev) => {
     });
     showSheet($('claimSheet'));
   }
-  if (a === 'share') { $('shareLink').textContent = 'https://rastro.example/s/' + hash(item.code).toString(36); showSheet($('shareSheet')); }
+  if (a === 'share') {
+    const snapshot = sharedSnapshot(item, s);
+    const url = new URL(location.href);
+    url.hash = `compartir=${encodeURIComponent(JSON.stringify(snapshot))}`;
+    $('shareLink').textContent = url.toString();
+    $('shareNote').textContent = ['localhost', '127.0.0.1'].includes(location.hostname)
+      ? 'En esta versión local el enlace solo abre en este mismo ordenador. Al publicar Rastro en un dominio, el enlace podrá abrirse desde otros dispositivos.'
+      : 'El enlace es una copia fija: no se actualiza cuando cambia el envío.';
+    showSheet($('shareSheet'));
+  }
   if (a === 'delete') { $('deleteText').textContent = `Se quitará «${item.name}» de tu lista. Esto no cancela el pedido.`; showSheet($('deleteSheet')); }
 });
 view.addEventListener('change', (ev) => {
@@ -493,6 +646,7 @@ function closeSheet() {
 }
 $('fab').addEventListener('click', () => { $('porder').max = new Date().toISOString().slice(0, 10); showSheet($('addSheet')); });
 $('menuBtn').addEventListener('click', () => {
+  updateThemeButton();
   $('demoRow').hidden = !state.items.some((i) => i.demo);
   $('modeNote').textContent = state.provider === 'mock' ? 'Modo de prueba: los envíos y las fechas son simulados.' : '';
   showSheet($('menuSheet'));
@@ -500,6 +654,12 @@ $('menuBtn').addEventListener('click', () => {
 scrim.addEventListener('click', closeSheet);
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeSheet(); });
 document.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', closeSheet));
+
+$('themeBtn').addEventListener('click', () => {
+  themePreference = activeTheme() === 'dark' ? 'light' : 'dark';
+  try { localStorage.setItem(THEME_KEY, themePreference); } catch (e) { /* solo dura esta sesión */ }
+  applyTheme();
+});
 
 $('claimCopy').addEventListener('click', function () {
   const ta = $('claimText');
@@ -567,7 +727,11 @@ async function refresh() {
       const r = data.results && data.results[idx];
       if (!r) return;
       if (r.error) errors[it.id] = r.error;
-      else { delete errors[it.id]; state.cache[it.id] = r; }
+      else {
+        const previous = state.cache[it.id];
+        delete errors[it.id]; state.cache[it.id] = r;
+        void notifyStatusChange(it, previous, r);
+      }
     });
     state.updatedAt = Date.now();
     state.provider = data.provider || state.provider;
@@ -579,6 +743,10 @@ async function refresh() {
     refreshing = false;
     rerender();
   }
+}
+
+if ('serviceWorker' in navigator) {
+  serviceWorkerRegistrationPromise = navigator.serviceWorker.register('/sw.js').catch(() => null);
 }
 
 document.addEventListener('visibilitychange', () => {

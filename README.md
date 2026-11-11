@@ -2,7 +2,7 @@
 
 Seguimiento de pedidos con fecha de llegada estimada, aviso de retraso y detector de SMS falsos.
 
-**Estado:** funciona de principio a fin con un **proveedor de prueba** (datos simulados). Todavía no está conectado a ningún transportista real. La web muestra un aviso de "Modo de prueba" mientras tanto.
+**Estado:** MVP local probado de principio a fin con un **proveedor de prueba** (datos simulados). Todavía no está conectado a ningún transportista real. La web muestra un aviso de "Modo de prueba" mientras tanto. No hace falta pagar una API para esta fase.
 
 ## Probarlo en tu ordenador
 
@@ -48,17 +48,30 @@ En el ordenador: `TRACKING_PROVIDER=trackingmore TRACKINGMORE_KEY=xxxx npm run d
 
 ## Lo que NO está hecho todavía
 
-- **Seguimiento real.** Ahora es simulado.
-- **Cuentas y base de datos.** Los envíos se guardan solo en el navegador de cada persona (se pierden si borra los datos del navegador y no pasan de un móvil a otro).
-- **Avisos al móvil** (notificaciones push y email).
-- **Compartir envío.** El enlace es de ejemplo.
-- **Importar pedidos del email.**
-- **Fiabilidad real.** Las cifras de `lib/carriers.js` son inventadas. No las publiques como ciertas.
-- **Fecha estimada calibrada.** `lib/eta.js` usa reglas sencillas. Hay que ajustarlas con envíos reales.
-- **Textos legales** (privacidad, condiciones, cookies): obligatorios antes de abrirlo al público, y más si pones anuncios.
-- **Límite de uso por persona** en la API, para que nadie gaste tu cupo del proveedor.
-- **Instalable sin conexión** (service worker). El manifiesto ya está.
+- **Seguimiento real.** La demo usa datos simulados. Hace falta escoger un proveedor, crear una cuenta y guardar su clave como variable de entorno del servidor.
+- **Cuentas y base de datos.** Los envíos siguen guardándose en el navegador y no se sincronizan entre dispositivos. Falta escoger e integrar un proveedor de autenticación y almacenamiento.
+- **Avisos remotos.** Los avisos locales del navegador están implementados; para avisar con la app cerrada o enviar email hacen falta un servicio push/email, claves, consentimiento y despliegue.
+- **Compartir envío.** El enlace ahora contiene una copia fija del estado y del número de seguimiento. En modo local solo funciona en ese mismo ordenador; para compartirlo entre dispositivos hace falta publicar la app en un dominio.
+- **Importar pedidos del email.** Necesita integración OAuth de Gmail o Microsoft, configuración de sus aplicaciones y consentimiento del usuario.
+- **Fiabilidad y estimaciones calibradas.** La app ya no muestra porcentajes ficticios. Para publicar una comparativa y calibrar `lib/eta.js` hay que recopilar entregas reales con fechas verificadas y suficiente muestra.
+- **Textos legales.** Antes de abrir el servicio al público faltan la identidad y datos de contacto del responsable, los plazos de conservación, los proveedores de datos y la revisión legal de privacidad, condiciones y cookies.
+- **Límite de uso en producción.** `/api/track` y `/api/sms` tienen un límite básico por IP en memoria, suficiente para pruebas locales. En Vercel las instancias no comparten ese contador; producción necesita un almacén de límites compartido y reglas ajustadas al proveedor elegido.
 
+## Terminado para la fase de prueba local
+
+- Selector de modo claro/oscuro con preferencia guardada en el navegador.
+- PWA con manifiesto y service worker: la interfaz y sus recursos se guardan en caché para volver a abrir la app sin conexión. El seguimiento y el análisis de SMS sí necesitan internet.
+- Pruebas manuales de lista, filtros, búsqueda, detalle, alta y baja de envíos, SMS, avisos, reclamación y compartir; los envíos añadidos para la prueba se eliminaron al terminar.
+- Pruebas automáticas: `npm test` (20 tests).
+
+## Siguiente orden recomendado
+
+1. Mantener el proveedor simulado mientras se termina y valida la experiencia local, sin consumir una cuota de API.
+2. Cuando toque probar seguimiento real, elegir DHL u otro proveedor, revisar sus condiciones y límites, y guardar la clave solo como variable de entorno del servidor.
+3. Antes de publicar: elegir autenticación y base de datos, definir dominio y responsable legal, preparar privacidad/condiciones/cookies y configurar límites compartidos.
+4. Después del despliegue: habilitar avisos push/email y probar compartir entre dispositivos.
+
+La carcasa de la web y sus recursos estáticos se guardan en caché mediante `public/sw.js`, por lo que las pantallas pueden abrirse sin conexión. Las consultas y análisis de la API necesitan conexión.
 ## Cosas a tener en cuenta
 
 - La reclamación habla del plazo de 30 días de la normativa de consumo. Es orientativo, y puede no aplicar igual a vendedores de fuera de la UE. La propia pantalla lo avisa.

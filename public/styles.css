@@ -107,6 +107,11 @@ select.input{appearance:auto}
 .card{background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:18px; display:flex; flex-direction:column; gap:12px}
 .card h3{font-size:1.05rem}
 .card p{margin:0; font-size:.9rem}
+.official-tracking{color:var(--ink); text-decoration:none; border-color:var(--accent); gap:4px}
+.official-tracking:hover{background:var(--accent-soft)}
+.official-tracking>span{display:flex; flex-direction:column; gap:4px}
+.official-tracking strong{font-size:.94rem; font-weight:600}
+.official-tracking span span{color:var(--muted); font-size:.82rem}
 .eta .big{font-family:var(--f-display); font-weight:700; font-size:clamp(1.7rem,8vw,2.3rem); letter-spacing:-.02em; line-height:1.05}
 .eta .win{color:var(--muted); font-size:.9rem}
 .dist{display:grid; grid-auto-flow:column; grid-auto-columns:minmax(0,1fr); gap:5px; align-items:end; height:84px}

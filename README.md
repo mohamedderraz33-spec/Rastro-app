@@ -82,7 +82,7 @@ Antes de usar datos DHL para predicciones, análisis propios, compartir u otros 
 - Selector de modo claro/oscuro con preferencia guardada en el navegador.
 - PWA instalable con iconos para móviles y escritorio, y service worker que guarda la interfaz en caché para abrirla sin conexión. El análisis de SMS también funciona sin conexión; el seguimiento sí necesita internet.
 - Pruebas manuales de lista, filtros, búsqueda, detalle, alta y baja de envíos, SMS, avisos, reclamación y compartir; los envíos añadidos para la prueba se eliminaron al terminar.
-- Pruebas automáticas: `npm test` (20 tests).
+- Pruebas automáticas incluidas: 28 casos en `npm test` (aún no ejecutados en esta actualización).
 
 ## Siguiente orden recomendado
 
@@ -97,3 +97,4 @@ La carcasa de la web y sus recursos estáticos se guardan en caché mediante `pu
 
 - La reclamación habla del plazo de 30 días de la normativa de consumo. Es orientativo, y puede no aplicar igual a vendedores de fuera de la UE. La propia pantalla lo avisa.
 - El análisis de SMS usa reglas. Nunca lo presentes como garantía de que un mensaje es seguro.
+

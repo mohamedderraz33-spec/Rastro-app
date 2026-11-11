@@ -43,6 +43,8 @@ En el ordenador: `TRACKING_PROVIDER=trackingmore TRACKINGMORE_KEY=xxxx npm run d
 
 Rastro incluye un conector de solo lectura para la API unificada de seguimiento de DHL. Solo muestra el estado y los eventos publicados por DHL, y la fecha prevista únicamente cuando DHL la devuelve. No calcula retrasos propios a partir de esos datos. Compartir el envío y cruzarlo con el análisis de SMS quedan desactivados para datos DHL.
 
+Si una API no está configurada o no da acceso, el detalle puede abrir la página oficial del transportista para que consultes allí el número manualmente. Rastro no envía el número a esa web automáticamente ni extrae datos de sus páginas.
+
 DHL informa actualmente que la API es gratuita para pruebas; el acceso requiere una clave aprobada del Developer Portal. La cuota inicial documentada es de 250 consultas al día y una consulta cada 5 segundos. El proveedor consulta un envío por petición, así que una lista grande puede tardar. La clave `demo-key` devuelve un envío ficticio de muestra, no un paquete real.
 
 En PowerShell, configura la clave solo en la sesión local del servidor (no la pongas en el código ni en Git):
@@ -66,7 +68,7 @@ Antes de usar datos DHL para predicciones, análisis propios, compartir u otros 
 
 ## Lo que NO está hecho todavía
 
-- **Seguimiento real.** La demo usa datos simulados. Hace falta escoger un proveedor, crear una cuenta y guardar su clave como variable de entorno del servidor.
+- **Seguimiento automático real.** El conector DHL está preparado, pero la solicitud de acceso de esta cuenta fue rechazada porque DHL pidió un correo con dominio empresarial. No hay seguimiento automático real habilitado; el modo de prueba sigue usando datos simulados. Los enlaces a páginas oficiales permiten consultar un envío manualmente fuera de Rastro.
 - **Cuentas y base de datos.** Los envíos siguen guardándose en el navegador y no se sincronizan entre dispositivos. Falta escoger e integrar un proveedor de autenticación y almacenamiento.
 - **Avisos remotos.** Los avisos locales del navegador están implementados; para avisar con la app cerrada o enviar email hacen falta un servicio push/email, claves, consentimiento y despliegue.
 - **Compartir envío.** El enlace ahora contiene una copia fija del estado y del número de seguimiento. En modo local solo funciona en ese mismo ordenador; para compartirlo entre dispositivos hace falta publicar la app en un dominio.
@@ -84,10 +86,11 @@ Antes de usar datos DHL para predicciones, análisis propios, compartir u otros 
 
 ## Siguiente orden recomendado
 
-1. Mantener el proveedor simulado mientras se termina y valida la experiencia local, sin consumir una cuota de API.
-2. Para probar un envío DHL real, solicitar y configurar una clave aprobada; la clave de demostración devuelve solo datos ficticios. Después revisar si DHL autoriza los cálculos predictivos propios de Rastro.
-3. Antes de publicar: elegir autenticación y base de datos, definir dominio y responsable legal, preparar privacidad/condiciones/cookies y configurar límites compartidos.
-4. Después del despliegue: habilitar avisos push/email y probar compartir entre dispositivos.
+1. Mantener el proveedor simulado para probar la experiencia local sin consumir cuotas.
+2. Consultar a DHL si admite proyectos personales y qué requisito concreto debe cumplir la solicitud antes de gastar dinero en un dominio o correo.
+3. Evaluar cada API por su acceso, coste y condiciones antes de conectarla. No basar producción en endpoints no documentados ni scraping de páginas públicas.
+4. Antes de publicar: elegir autenticación y base de datos, definir dominio y responsable legal, preparar privacidad/condiciones/cookies y configurar límites compartidos.
+5. Después del despliegue: habilitar avisos push/email y probar compartir entre dispositivos.
 
 La carcasa de la web y sus recursos estáticos se guardan en caché mediante `public/sw.js`, por lo que las pantallas pueden abrirse sin conexión. Las consultas y análisis de la API necesitan conexión.
 ## Cosas a tener en cuenta

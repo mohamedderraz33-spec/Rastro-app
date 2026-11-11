@@ -80,7 +80,7 @@ Antes de usar datos DHL para predicciones, análisis propios, compartir u otros 
 ## Terminado para la fase de prueba local
 
 - Selector de modo claro/oscuro con preferencia guardada en el navegador.
-- PWA con manifiesto y service worker: la interfaz y sus recursos se guardan en caché para volver a abrir la app sin conexión. El seguimiento y el análisis de SMS sí necesitan internet.
+- PWA con manifiesto y service worker: la interfaz y sus recursos se guardan en caché para volver a abrir la app sin conexión. El análisis de SMS también funciona sin conexión; el seguimiento sí necesita internet.
 - Pruebas manuales de lista, filtros, búsqueda, detalle, alta y baja de envíos, SMS, avisos, reclamación y compartir; los envíos añadidos para la prueba se eliminaron al terminar.
 - Pruebas automáticas: `npm test` (20 tests).
 
@@ -92,7 +92,7 @@ Antes de usar datos DHL para predicciones, análisis propios, compartir u otros 
 4. Antes de publicar: elegir autenticación y base de datos, definir dominio y responsable legal, preparar privacidad/condiciones/cookies y configurar límites compartidos.
 5. Después del despliegue: habilitar avisos push/email y probar compartir entre dispositivos.
 
-La carcasa de la web y sus recursos estáticos se guardan en caché mediante `public/sw.js`, por lo que las pantallas pueden abrirse sin conexión. Las consultas y análisis de la API necesitan conexión.
+La carcasa de la web y sus recursos estáticos se guardan en caché mediante `public/sw.js`, por lo que las pantallas pueden abrirse sin conexión. El análisis de SMS se ejecuta en el navegador y también funciona sin conexión; el seguimiento necesita conexión.
 ## Cosas a tener en cuenta
 
 - La reclamación habla del plazo de 30 días de la normativa de consumo. Es orientativo, y puede no aplicar igual a vendedores de fuera de la UE. La propia pantalla lo avisa.

@@ -691,6 +691,28 @@ $('themeBtn').addEventListener('click', () => {
   applyTheme();
 });
 
+let installPrompt = null;
+const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+const isAppleMobile = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+if (!isStandalone && isAppleMobile) $('installHelp').hidden = false;
+window.addEventListener('beforeinstallprompt', (event) => {
+  event.preventDefault();
+  installPrompt = event;
+  if (!isStandalone) $('installRow').hidden = false;
+});
+$('installBtn').addEventListener('click', async () => {
+  if (!installPrompt) return;
+  const prompt = installPrompt;
+  installPrompt = null;
+  $('installRow').hidden = true;
+  try { await prompt.prompt(); } catch (e) { /* el navegador puede cerrar el aviso */ }
+});
+window.addEventListener('appinstalled', () => {
+  installPrompt = null;
+  $('installRow').hidden = true;
+  $('installHelp').hidden = true;
+});
+
 $('claimCopy').addEventListener('click', function () {
   const ta = $('claimText');
   copyText(ta.value, this, 'Copiado', 'Selecciona el texto y cópialo');

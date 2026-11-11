@@ -1,4 +1,5 @@
 import { CATS, riskLevel, claimText } from './js/content.js';
+import { analyzeSms } from './js/sms.js';
 
 /* ---------- utilidades ---------- */
 const DAY = 86400000;
@@ -462,21 +463,14 @@ function renderSms() {
     `<textarea class="input" id="smsText" rows="5" placeholder="Pega aquí el SMS…">${esc(smsText)}</textarea></div>` +
     '<div class="btnrow"><button class="btn" type="button" id="smsGo">Analizar</button><button class="btn line" type="button" id="smsEx">Probar con un ejemplo</button></div>' +
     '<div id="smsOut" class="stack" aria-live="polite"></div>' +
-    '<p class="note">Este análisis usa reglas sencillas. En esta fase no cruza los datos de seguimiento de DHL con el SMS. Nunca des datos ni tarjeta desde el enlace de un SMS.</p></div>';
+    '<p class="note">El análisis se hace en este dispositivo con reglas sencillas: el SMS no se envía al servidor. No garantiza que un mensaje sea seguro y no cruza los datos de seguimiento de DHL. Nunca des datos ni tarjeta desde un enlace de un SMS.</p></div>';
   fabwrap.hidden = true;
   const ta = $('smsText'), out = $('smsOut');
-  async function run() {
+  function run() {
     smsText = ta.value;
     if (smsText.trim().length < 8) { out.innerHTML = '<div class="hint err">Pega el mensaje completo para poder analizarlo.</div>'; return; }
-    out.innerHTML = '<div class="hint">Analizando…</div>';
-    try {
-      const shipments = state.items.filter((i) => state.cache[i.id]?.dataSource !== 'DHL').map((i) => { const s = state.cache[i.id]; return { name: i.name, store: i.store, carrier: s ? s.carrier : '', status: s ? s.status : '' }; });
-      const res = await fetch('/api/sms', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: smsText, shipments }) });
-      const data = await res.json();
-      out.innerHTML = res.ok ? smsResultHtml(data) : `<div class="hint err">${esc(data.message || 'No se pudo analizar.')}</div>`;
-    } catch (e) {
-      out.innerHTML = '<div class="hint err">No se pudo analizar ahora mismo. Comprueba la conexión e inténtalo de nuevo.</div>';
-    }
+    const shipments = state.items.filter((i) => state.cache[i.id]?.dataSource !== 'DHL').map((i) => { const s = state.cache[i.id]; return { name: i.name, store: i.store, carrier: s ? s.carrier : '', status: s ? s.status : '' }; });
+    out.innerHTML = smsResultHtml(analyzeSms(smsText, shipments));
   }
   $('smsGo').addEventListener('click', run);
   $('smsEx').addEventListener('click', () => { ta.value = SAMPLE_SMS; run(); });

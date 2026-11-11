@@ -80,7 +80,7 @@ Antes de usar datos DHL para predicciones, análisis propios, compartir u otros 
 ## Terminado para la fase de prueba local
 
 - Selector de modo claro/oscuro con preferencia guardada en el navegador.
-- PWA con manifiesto y service worker: la interfaz y sus recursos se guardan en caché para volver a abrir la app sin conexión. El análisis de SMS también funciona sin conexión; el seguimiento sí necesita internet.
+- PWA instalable con iconos para móviles y escritorio, y service worker que guarda la interfaz en caché para abrirla sin conexión. El análisis de SMS también funciona sin conexión; el seguimiento sí necesita internet.
 - Pruebas manuales de lista, filtros, búsqueda, detalle, alta y baja de envíos, SMS, avisos, reclamación y compartir; los envíos añadidos para la prueba se eliminaron al terminar.
 - Pruebas automáticas: `npm test` (20 tests).
 

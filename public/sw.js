@@ -1,4 +1,4 @@
-const CACHE = 'rastro-shell-v3';
+const CACHE = 'rastro-shell-v4';
 const SHELL = [
   '/',
   '/index.html',
@@ -7,6 +7,8 @@ const SHELL = [
   '/js/content.js',
   '/js/sms.js',
   '/manifest.webmanifest',
+  '/icon-192.png',
+  '/icon-512.png',
   '/icon.svg',
 ];
 

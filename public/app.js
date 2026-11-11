@@ -116,6 +116,21 @@ function orderTsOf(item, s) {
 }
 function pickupLeft(s) { return Math.max(0, Math.ceil((s.pickup.deadlineTs - Date.now()) / DAY)); }
 
+function officialTrackingPage(carrier) {
+  const name = String(carrier || '').toLowerCase();
+  if (name.includes('cainiao')) return 'https://global.cainiao.com/';
+  if (name.includes('yun express')) return 'https://www.yunexpress.com/resource/tracking-platform';
+  if (name.includes('correos express')) return 'https://s.correosexpress.com/';
+  if (name.includes('correos')) return 'https://www.correos.es/es/es/herramientas/localizador/envios';
+  if (name.includes('seur')) return 'https://www.seur.com/es/index.html?trakingnumber=seguimiento';
+  if (name.includes('dhl')) return 'https://www.dhl.com/es-es/home/tracking.html';
+  if (name.includes('ups')) return 'https://www.ups.com/track';
+  if (name.includes('gls')) return 'https://gls-group.com/ES/es/recibir-paquetes/seguimiento-envio/';
+  if (name.includes('mrw')) return 'https://www.mrw.es/seguimiento/index.asp?opcio=2';
+  if (name.includes('ctt')) return 'https://www.cttexpress.com/localizador-de-envios/';
+  return null;
+}
+
 function decodeSharedSnapshot(hashValue) {
   const prefix = '#compartir=';
   if (!hashValue.startsWith(prefix)) return undefined;
@@ -322,12 +337,23 @@ function customsHtml(item) {
 function renderDetail(item) {
   const s = state.cache[item.id];
   let h = BACK + '<div class="panel">';
+  if (state.provider === 'mock') {
+    h += '<div class="banner">Modo de prueba: el estado y las fechas son simulados. Para consultar el paquete real, abre la web oficial del transportista.</div>';
+  } else if (state.provider === 'dhl-demo') {
+    h += '<div class="banner">Modo de prueba de DHL: estos resultados son de muestra y no pertenecen a un envío real.</div>';
+  }
   const st = stOf(s);
   h += `<div class="head"><span class="label">${esc(item.store || 'Sin tienda')}</span><h2>${esc(item.name)}</h2>` +
     `<div class="meta"><span class="mono">${esc(item.code)}</span><button class="sbtn" type="button" data-act="copy">Copiar</button>` +
     (s && s.dataSource === 'DHL' ? '' : '<button class="sbtn" type="button" data-act="share">Compartir</button>') +
     '<button class="sbtn" type="button" data-act="delete">Quitar</button>' +
     `<span>${esc(s ? s.carrier : '')}</span><span class="pill ${st.c}">${st.t}</span></div></div>`;
+
+  const trackingPage = officialTrackingPage(s && s.carrier);
+  if (trackingPage) {
+    h += `<a class="card official-tracking" href="${trackingPage}" target="_blank" rel="noopener noreferrer">` +
+      '<span><strong>Consultar seguimiento oficial ↗</strong><span>Se abrirá la web del transportista en otra pestaña. Copia allí tu número de seguimiento.</span></span></a>';
+  }
 
   if (!s) {
     const err = errors[item.id];

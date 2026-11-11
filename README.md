@@ -39,6 +39,24 @@ Para pasar los tests: `npm test`
 
 En el ordenador: `TRACKING_PROVIDER=trackingmore TRACKINGMORE_KEY=xxxx npm run dev`.
 
+### DHL Shipment Tracking - Unified
+
+Rastro incluye un conector de solo lectura para la API unificada de seguimiento de DHL. Solo muestra el estado y los eventos publicados por DHL, y la fecha prevista únicamente cuando DHL la devuelve. No calcula retrasos propios a partir de esos datos. Compartir el envío y cruzarlo con el análisis de SMS quedan desactivados para datos DHL.
+
+DHL informa actualmente que la API es gratuita para pruebas; el acceso requiere una clave aprobada del Developer Portal. La cuota inicial documentada es de 250 consultas al día y una consulta cada 5 segundos. El proveedor consulta un envío por petición, así que una lista grande puede tardar. La clave `demo-key` devuelve un envío ficticio de muestra, no un paquete real.
+
+En PowerShell, configura la clave solo en la sesión local del servidor (no la pongas en el código ni en Git):
+
+```powershell
+$env:TRACKING_PROVIDER = 'dhl'
+$env:DHL_API_KEY = 'tu_clave_aprobada'
+npm run dev
+```
+
+Para probar solo el formato de respuesta de DHL, se puede usar `DHL_API_KEY='demo-key'`; la interfaz lo identifica como modo de demostración.
+
+Antes de usar datos DHL para predicciones, análisis propios, compartir u otros fines distintos del seguimiento legítimo, revisa las condiciones vigentes y solicita autorización escrita a DHL cuando corresponda. Las condiciones de la API limitan revelar, modificar o derivar información de los datos de seguimiento. Referencias: [acceso y cuota de DHL](https://developer.dhl.com/tracking) y [tarifas de la API unificada](https://support-developer.dhl.com/support/solutions/articles/47001249492-is-the-dhl-shipment-tracking-unified-api-free-of-charge-).
+
 ## Publicarlo (Vercel, gratis para empezar)
 
 1. Sube esta carpeta a un repositorio de GitHub (privado).
@@ -67,7 +85,7 @@ En el ordenador: `TRACKING_PROVIDER=trackingmore TRACKINGMORE_KEY=xxxx npm run d
 ## Siguiente orden recomendado
 
 1. Mantener el proveedor simulado mientras se termina y valida la experiencia local, sin consumir una cuota de API.
-2. Cuando toque probar seguimiento real, elegir DHL u otro proveedor, revisar sus condiciones y límites, y guardar la clave solo como variable de entorno del servidor.
+2. Para probar un envío DHL real, solicitar y configurar una clave aprobada; la clave de demostración devuelve solo datos ficticios. Después revisar si DHL autoriza los cálculos predictivos propios de Rastro.
 3. Antes de publicar: elegir autenticación y base de datos, definir dominio y responsable legal, preparar privacidad/condiciones/cookies y configurar límites compartidos.
 4. Después del despliegue: habilitar avisos push/email y probar compartir entre dispositivos.
 

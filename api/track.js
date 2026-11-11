@@ -44,9 +44,15 @@ export default async function handler(req, res) {
       const s = byCode.get(r.code);
       if (!s) return { code: r.code, error: 'not_found' };
       if (s.error) return { code: r.code, error: s.error };
-      return { ...s, eta: estimate(s, now), fetchedAt: now };
+      const providerName = (process.env.TRACKING_PROVIDER || 'mock').toLowerCase();
+      // DHL's public API terms limit analysis and derived data. For this basic
+      // integration, display only DHL's own ETA when present; never invent one.
+      const eta = providerName === 'dhl' ? s.eta : estimate(s, now);
+      return { ...s, eta, fetchedAt: now };
     });
-    return res.status(200).json({ provider: (process.env.TRACKING_PROVIDER || 'mock').toLowerCase(), results });
+    const providerName = (process.env.TRACKING_PROVIDER || 'mock').toLowerCase();
+    const providerLabel = providerName === 'dhl' && process.env.DHL_API_KEY === 'demo-key' ? 'dhl-demo' : providerName;
+    return res.status(200).json({ provider: providerLabel, results });
   } catch (err) {
     console.error('[track]', err && err.message);
     return res.status(502).json({ error: 'provider_error', message: 'No se pudo consultar el seguimiento ahora mismo.' });

@@ -104,7 +104,10 @@ const STATUS = {
   delivered: { t: 'Entregado', c: 'ok', stage: 5 },
   unknown: { t: 'Sin datos', c: 'plain', stage: 0 },
 };
-const stOf = (s) => (s && STATUS[s.status]) || STATUS.unknown;
+const stOf = (s) => {
+  const known = (s && STATUS[s.status]) || STATUS.unknown;
+  return s && s.dataSource === 'DHL' && s.statusLabel ? { ...known, t: String(s.statusLabel).slice(0, 80) } : known;
+};
 const delayOf = (s) => (s && s.eta && s.eta.delayDays) || 0;
 function orderTsOf(item, s) {
   if (item.orderedAt) return item.orderedAt;
@@ -226,6 +229,8 @@ function rowText(item, s) {
   if (s.status === 'out') return 'Llega hoy';
   if (s.status === 'pickup') return 'Recoger antes del ' + f.short.format(e.mainTs);
   if (s.status === 'registered') return 'Esperando primer escaneo';
+  if (e && e.kind === 'unavailable') return 'DHL todavía no da fecha';
+  if (e && e.source === 'dhl' && e.mainTs) return 'DHL prevé ' + f.short.format(e.mainTs);
   return 'Llega ~ ' + f.short.format(e.mainTs);
 }
 
@@ -239,6 +244,8 @@ function renderList() {
   let h = '';
   if (state.provider === 'mock') {
     h += '<div class="banner">Modo de prueba: los envíos y las fechas son simulados, no vienen de los transportistas.</div>';
+  } else if (state.provider === 'dhl-demo') {
+    h += '<div class="banner">Modo de prueba de DHL: los resultados son de muestra, no son datos de un envío real.</div>';
   }
   if (netError) {
     h += '<div class="banner warn" role="status">No se pudo actualizar. Se muestran los últimos datos guardados.</div>';
@@ -293,6 +300,8 @@ function etaView(s) {
   const e = s.eta;
   if (e.kind === 'delivered') return { big: 'Entregado el ' + f.long.format(e.mainTs), win: '' };
   if (e.kind === 'today') return { big: 'Llega hoy', win: 'El repartidor ya está en tu zona.' };
+  if (e.kind === 'unavailable') return { big: 'DHL aún no facilita una fecha', win: 'Se muestra el estado y el historial que DHL publica para este envío.' };
+  if (e.source === 'dhl') return { big: 'DHL prevé la entrega el ' + f.long.format(e.mainTs), win: 'Fecha comunicada directamente por DHL.' };
   const same = f.short.format(e.fromTs) === f.short.format(e.toTs);
   return {
     big: same ? 'El ' + f.short.format(e.fromTs) : `Entre el ${f.short.format(e.fromTs)} y el ${f.short.format(e.toTs)}`,
@@ -316,7 +325,8 @@ function renderDetail(item) {
   const st = stOf(s);
   h += `<div class="head"><span class="label">${esc(item.store || 'Sin tienda')}</span><h2>${esc(item.name)}</h2>` +
     `<div class="meta"><span class="mono">${esc(item.code)}</span><button class="sbtn" type="button" data-act="copy">Copiar</button>` +
-    '<button class="sbtn" type="button" data-act="share">Compartir</button><button class="sbtn" type="button" data-act="delete">Quitar</button>' +
+    (s && s.dataSource === 'DHL' ? '' : '<button class="sbtn" type="button" data-act="share">Compartir</button>') +
+    '<button class="sbtn" type="button" data-act="delete">Quitar</button>' +
     `<span>${esc(s ? s.carrier : '')}</span><span class="pill ${st.c}">${st.t}</span></div></div>`;
 
   if (!s) {
@@ -347,7 +357,7 @@ function renderDetail(item) {
       '</div></div>';
   } else {
     const e = etaView(s);
-    h += `<div class="card eta"><span class="label">${s.status === 'delivered' ? 'Resultado' : 'Llegada estimada'}</span><div class="big">${esc(e.big)}</div>` +
+    h += `<div class="card eta"><span class="label">${s.status === 'delivered' ? 'Resultado' : s.dataSource === 'DHL' ? 'Información de entrega' : 'Llegada estimada'}</span><div class="big">${esc(e.big)}</div>` +
       (e.win ? `<div class="win">${esc(e.win)}</div>` : '');
     if (s.eta.kind === 'estimate' && s.eta.dist) {
       const maxp = Math.max(...s.eta.dist.map((x) => x.p));
@@ -365,7 +375,7 @@ function renderDetail(item) {
   const delay = delayOf(s);
   if (delay) {
     h += `<div class="alert" role="alert"><strong>Va con ${delay} días de retraso</strong><p>${esc(s.eta.reason || '')} He movido la fecha estimada y te aviso si cambia otra vez.</p></div>`;
-  } else if (s.status === 'transit' || s.status === 'out') {
+  } else if (s.dataSource !== 'DHL' && (s.status === 'transit' || s.status === 'out')) {
     h += '<div class="ontime">Va según lo previsto. Sin incidencias en la ruta.</div>';
   }
 
@@ -397,7 +407,7 @@ function renderDetail(item) {
   h += '<div><h3 style="font-size:1.05rem; margin-bottom:14px">Historial</h3><ul class="tl">' + s.events.map((ev) =>
     `<li><div class="when">${whenLabel(ev.ts)}<br>${f.time.format(ev.ts)}</div><div class="dot"></div><div class="tx"><b>${esc(ev.title)}</b><span>${esc(ev.place || '')}</span></div></li>`).join('') + '</ul></div>';
 
-  if (s.status !== 'delivered' && s.status !== 'pickup') {
+  if (s.dataSource !== 'DHL' && s.status !== 'delivered' && s.status !== 'pickup') {
     h += '<div class="how"><span class="label">Cómo calculo la fecha</span><ul>' +
       '<li>Cuánto suele tardar este tipo de ruta</li><li>Cuánto lleva el paquete en cada paso</li>' +
       '<li>Festivos y campañas (11.11, Black Friday, Navidad)</li><li>En cuanto el paquete se mueve, recalculo la fecha</li></ul></div>';
@@ -426,7 +436,7 @@ function renderSms() {
     `<textarea class="input" id="smsText" rows="5" placeholder="Pega aquí el SMS…">${esc(smsText)}</textarea></div>` +
     '<div class="btnrow"><button class="btn" type="button" id="smsGo">Analizar</button><button class="btn line" type="button" id="smsEx">Probar con un ejemplo</button></div>' +
     '<div id="smsOut" class="stack" aria-live="polite"></div>' +
-    '<p class="note">Este análisis usa reglas sencillas. La versión final usará IA y una lista de webs oficiales siempre al día. Nunca des datos ni tarjeta desde el enlace de un SMS.</p></div>';
+    '<p class="note">Este análisis usa reglas sencillas. En esta fase no cruza los datos de seguimiento de DHL con el SMS. Nunca des datos ni tarjeta desde el enlace de un SMS.</p></div>';
   fabwrap.hidden = true;
   const ta = $('smsText'), out = $('smsOut');
   async function run() {
@@ -434,7 +444,7 @@ function renderSms() {
     if (smsText.trim().length < 8) { out.innerHTML = '<div class="hint err">Pega el mensaje completo para poder analizarlo.</div>'; return; }
     out.innerHTML = '<div class="hint">Analizando…</div>';
     try {
-      const shipments = state.items.map((i) => { const s = state.cache[i.id]; return { name: i.name, store: i.store, carrier: s ? s.carrier : '', status: s ? s.status : '' }; });
+      const shipments = state.items.filter((i) => state.cache[i.id]?.dataSource !== 'DHL').map((i) => { const s = state.cache[i.id]; return { name: i.name, store: i.store, carrier: s ? s.carrier : '', status: s ? s.status : '' }; });
       const res = await fetch('/api/sms', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: smsText, shipments }) });
       const data = await res.json();
       out.innerHTML = res.ok ? smsResultHtml(data) : `<div class="hint err">${esc(data.message || 'No se pudo analizar.')}</div>`;

@@ -1,10 +1,11 @@
-const CACHE = 'rastro-shell-v2';
+const CACHE = 'rastro-shell-v3';
 const SHELL = [
   '/',
   '/index.html',
   '/app.js',
   '/styles.css',
   '/js/content.js',
+  '/js/sms.js',
   '/manifest.webmanifest',
   '/icon.svg',
 ];
